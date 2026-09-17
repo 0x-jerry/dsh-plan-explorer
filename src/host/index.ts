@@ -13,8 +13,9 @@
  * checkout.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import type { Session } from '@deepseek-ai/dsh-session'
-import { extractPlans, type PlanSummary } from './plans.js'
+import { SessionId, type Session } from '@deepseek-ai/dsh-session'
+import { extractPlans } from './plans.js'
+import type { PlanSummary } from '../shared/types.js'
 
 export const name = 'dsh-plan-explorer'
 export const inject: string[] = []
@@ -31,8 +32,8 @@ export interface SessionsLike {
 
 export function apply(ctx: Context): void {
   function listPlans(sessionId: string): PlanSummary[] {
-    const sessions = ctx.get('sessions') as SessionsLike | undefined
-    const session = sessions?.get(sessionId)
+    const sessions = ctx.get('sessions')
+    const session = sessions?.get(SessionId(sessionId))
     if (!session) return []
     return extractPlans(session.snapshotEvents())
   }

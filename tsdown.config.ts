@@ -32,7 +32,7 @@ const isProductionDependency = (specifier: string): boolean =>
 export default defineConfig([
   {
     name: pkg.name,
-    entry: { index: 'src/index.ts' },
+    entry: { index: 'src/host/index.ts' },
     tsconfig: 'tsconfig.src.json',
     outDir: 'lib',
     format: ['esm'],
@@ -48,7 +48,7 @@ export default defineConfig([
   },
   {
     name: `${pkg.name}/client`,
-    entry: { client: 'src/client.tsx' },
+    entry: { client: 'src/client/index.tsx' },
     tsconfig: 'tsconfig.src.json',
     outDir: 'lib',
     format: 'cjs',

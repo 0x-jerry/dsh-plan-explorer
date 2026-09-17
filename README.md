@@ -18,9 +18,13 @@ dsh-plan-explorer/
 ├── tsconfig.json
 ├── cordis.patch.yml     # bundle patch layer inserting the plugin row
 └── src/
-    ├── plans.ts         # pure plan-extraction domain logic (unit-testable)
-    ├── index.ts         # Host half: sessions read -> plans.listPlans service
-    └── client.tsx       # Client half: sidebar tab/body + data source
+    ├── host/
+    │   ├── index.ts   # Host half: sessions read -> plans.listPlans service
+    │   └── plans.ts   # plan-extraction domain logic (unit-testable)
+    ├── client/
+    │   └── index.tsx  # Client half: sidebar tab/body + data source
+    └── shared/
+        └── types.ts    # plan data types shared by host + client
 ```
 
 ## Building
@@ -44,7 +48,7 @@ dsh --profile demo --dump-config   # shows the "# == dsh-plan-explorer" layer
 
 ## Verification status
 
-- **Verified / correct:** Host half (session-log read via `sessions` service, plan extraction in `src/plans.ts`), and Client half against the real slot + `sidebarRightTabs` APIs; the markdown preview reuses DSH's `MarkdownText` primitive.
+- **Verified / correct:** Host half (session-log read via the `sessions` service keyed by a real `SessionId` from `@deepseek-ai/dsh-session`, plan extraction in `src/host/plans.ts`), and Client half against the real slot + `sidebarRightTabs` APIs; the markdown preview reuses DSH's `MarkdownText` primitive.
 - **Open (needs the checkout):** the Host→Client **Remote/typert** namespace so `ctx.remote.plans` exists on the browser client (typert codegen).
 
 ## License

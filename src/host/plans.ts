@@ -1,29 +1,8 @@
 /**
- * Pure plan-extraction domain logic, shared by the Host half (src/index.ts)
- * and any other consumer that ends up owning a session event log.
- *
- * A "plan" is an `exit_plan_mode` tool-call event: the session log stores it as
- * a `tool/call` `SessionEvent` whose `data.arguments` JSON string carries a
- * `plan` field with the markdown body.
+ * Plan-extraction domain logic, owned by the Host half. Types live in
+ * src/shared/types.ts.
  */
-
-export interface PlanSummary {
-  /** Stable id; the event sequence number formatted as a string. */
-  id: string
-  /** The event sequence number; used for newest-first ordering. */
-  seq: number
-  /** First markdown heading (H1–H6), else first non-empty line, else a fallback. */
-  title: string
-  /** The raw markdown plan body. */
-  plan: string
-}
-
-/** Minimal structural shape of a `tool/call` SessionEvent that we read. */
-export interface ToolCallEventLike {
-  type: string
-  seq: number
-  data?: { name?: unknown; arguments?: unknown }
-}
+import type { PlanSummary, ToolCallEventLike } from '../shared/types.js'
 
 /** Extract the display title from a plan body. */
 export function extractTitle(plan: string): string {

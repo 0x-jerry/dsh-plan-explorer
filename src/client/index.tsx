@@ -18,7 +18,7 @@
 import type { Context, Effect } from '@deepseek-ai/cordis'
 import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from 'react'
 import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PlanSummary } from './plans.js'
+import type { PlanSummary } from '../shared/types.js'
 
 export const name = 'dsh-plan-explorer'
 export const inject = ['slots', 'sidebarRightTabs']
@@ -38,7 +38,7 @@ export interface PlansRemoteFace {
 }
 
 function clientOfPlansSource(ctx: Context): PlansRemoteFace | undefined {
-  // The Host provides `plans` (see src/index.ts); when a typert Remote namespace
+  // The Host provides `plans` (see src/host/index.ts); when a typert Remote namespace
   // is wired, it appears on the client as `ctx.remote.plans`. Typed via a local
   // interface + `any` cast because the namespace is generated at build time.
   const remote = (ctx as unknown as { remote?: { plans?: PlansRemoteFace } }).remote
