@@ -2,7 +2,7 @@
 
 A **Plans** plugin for the DeepSeek Harness (DSH) that lists and previews **plan-mode plans** in the active session, built the official way — **TypeScript + tsdown**.
 
-Clicking **Plans** in the left sidebar footer opens the right sidebar onto a **Plans** tab that:
+A **Plans** tab in the right sidebar that:
 
 - Lists every plan-mode plan produced in the active session (each `exit_plan_mode` tool call in its log), newest first, with a title (first markdown heading) and sequence number.
 - Lets you select a plan and preview it **rendered as markdown** in the same tab, with a back-to-list affordance. Rendering reuses DSH's own `MarkdownText` primitive from `@deepseek-ai/dsh-client-ui-primitives` (the same micromark-based renderer the GUI uses everywhere), so plans preview exactly like native DSH markdown.
@@ -20,7 +20,7 @@ dsh-plan-explorer/
 └── src/
     ├── plans.ts         # pure plan-extraction domain logic (unit-testable)
     ├── index.ts         # Host half: sessions read -> plans.listPlans service
-    └── client.tsx       # Client half: sidebar tab/body/footer + data source
+    └── client.tsx       # Client half: sidebar tab/body + data source
 ```
 
 ## Building

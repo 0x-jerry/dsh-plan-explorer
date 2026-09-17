@@ -1,7 +1,7 @@
 {
   "name": "dsh-plan-explorer",
   "version": "0.1.0",
-  "description": "A 'Plans' left-sidebar footer action + right-sidebar tab that lists and markdown-previews plan-mode plans (exit_plan_mode) of the active session.",
+  "description": "A 'Plans' right-sidebar tab that lists and markdown-previews plan-mode plans (exit_plan_mode) of the active session.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

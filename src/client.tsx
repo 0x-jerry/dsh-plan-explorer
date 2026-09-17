@@ -1,16 +1,14 @@
 /**
  * Browser client half of the Plans plugin.
  *
- * Registers a "Plans" tab type in the right sidebar plus a "Plans" footer
- * action that opens it. The tab lists plan-mode plans of the active session and
- * previews the selected plan's markdown.
+ * Registers a "Plans" tab type in the right sidebar. The tab lists plan-mode
+ * plans of the active session and previews the selected plan's markdown.
  *
  * VERIFIED against the shipped client-UI slot registration pattern (the guide /
  * files / documentpreview plugins) and `Slots.listSubTree`:
  *   - `sidebarRightTabs.register(definition)` -> disposer
  *   - `slots.inject('sidebar.right.pane.tab', () => slots.register({name,key}, Body))`
  *   - `slots.inject('sidebar.right.pane.tab.title', ...)`
- *   - `slots.inject('sidebar.footer.action', ...)` and `ctx.sidebarRight.openTab(kind)`
  *   - tab body standard props include `sessionId` (and `useSession`).
  *
  * DATA FLOW (the one integration seam): the plan bodies live on the Host. The
@@ -23,7 +21,7 @@ import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PlanSummary } from './plans.js'
 
 export const name = 'dsh-plan-explorer'
-export const inject = ['slots', 'sidebarRightTabs', 'sidebarRight']
+export const inject = ['slots', 'sidebarRightTabs']
 
 const TAB_ID = 'plans-sidebar'
 const KIND = 'dshPlans'
@@ -124,16 +122,12 @@ type PlansServices = {
   sidebarRightTabs: {
     register(definition: unknown): Effect
   }
-  sidebarRight: {
-    openTab(kind: string): unknown
-  }
 }
 
 export function apply(ctx: Context): void {
   const c = ctx as Context & PlansServices
   const tabs = c.sidebarRightTabs
   const slots = c.slots
-  const right = c.sidebarRight
 
   tabs.register({
     id: TAB_ID,
@@ -151,10 +145,5 @@ export function apply(ctx: Context): void {
   ctx.effect(() => slots.inject('sidebar.right.pane.tab.title', () => slots.register(
     { name: 'sidebar.right.pane.tab.title', key: TAB_ID },
     () => <span>Plans</span>,
-  )))
-
-  ctx.effect(() => slots.inject('sidebar.footer.action', () => slots.register(
-    { name: 'sidebar.footer.action', id: TAB_ID, order: 20, label: () => 'Plans' },
-    () => <button onClick={() => right.openTab(KIND)}>Plans</button>,
   )))
 }
