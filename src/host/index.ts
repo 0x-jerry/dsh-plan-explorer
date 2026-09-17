@@ -35,16 +35,20 @@ const REMOTE_METHOD_DESCRIPTOR = '@deepseek-ai/dsh-typert-protocol/remote-method
 export function markRemoteMethod(service: object, method: string): void {
   const prototype = Object.getPrototypeOf(service)
   const property = Object.getOwnPropertyDescriptor(prototype, REMOTE_METHOD_DESCRIPTOR)
-  const descriptor = property === undefined ? undefined : property.value as { methods?: Array<{ method: string }> }
+  const descriptor =
+    property === undefined ? undefined : (property.value as { methods?: Array<{ method: string }> })
   if (descriptor?.methods?.some((m) => m.method === method)) return
   Object.defineProperty(prototype, REMOTE_METHOD_DESCRIPTOR, {
     configurable: true,
     value: Object.freeze({
       version: 1,
-      methods: Object.freeze([...(descriptor?.methods ?? []), Object.freeze({
-        method,
-        invocation: Object.freeze({ kind: 'direct' }),
-      })]),
+      methods: Object.freeze([
+        ...(descriptor?.methods ?? []),
+        Object.freeze({
+          method,
+          invocation: Object.freeze({ kind: 'direct' }),
+        }),
+      ]),
     }),
   })
 }
@@ -62,10 +66,10 @@ export class PlansService extends TypertRemoteService {
     markRemoteMethod(this, 'listPlans')
   }
 
-  async listPlans(request: ListPlansRequest): Promise<RemoteResult<PlanSummary[]>> {
+  async listPlans(request: ListPlansRequest): Promise<PlanSummary[]> {
     const sessions = this.ctx.get('sessions') as SessionsLike | undefined
     const session = sessions?.get(SessionId(request.sessionId))
-    return { ok: true, value: session ? extractPlans(session.snapshotEvents()) : [] }
+    return session ? extractPlans(session.snapshotEvents()) : []
   }
 }
 

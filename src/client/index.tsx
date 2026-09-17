@@ -45,17 +45,40 @@ function plansRemote(ctx: Context): PlansRemoteNamespace {
 }
 
 const styles: Record<string, CSSProperties> = {
-  root: { display: 'flex', flexDirection: 'column', height: '100%', padding: 12, gap: 8, boxSizing: 'border-box' },
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    padding: 12,
+    gap: 8,
+    boxSizing: 'border-box',
+  },
   header: { fontWeight: 600 },
   list: { display: 'flex', flexDirection: 'column', gap: 4, overflow: 'auto', flex: 1 },
   row: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
-    padding: '8px 10px', border: 'none', borderRadius: 6, background: 'transparent',
-    color: 'inherit', textAlign: 'left', cursor: 'pointer', font: 'inherit',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 10px',
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    color: 'inherit',
+    textAlign: 'left',
+    cursor: 'pointer',
+    font: 'inherit',
   },
   rowTitle: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   rowSeq: { opacity: 0.6, fontSize: 12, flexShrink: 0 },
-  back: { alignSelf: 'flex-start', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '4px 6px' },
+  back: {
+    alignSelf: 'flex-start',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'inherit',
+    padding: '4px 6px',
+  },
   preview: { flex: 1, overflow: 'auto' },
   note: { padding: 8, opacity: 0.7 },
 }
@@ -74,9 +97,15 @@ function PlanBody(props: PlanBodyProps, ctx: Context): ReactElement {
     setList(null)
     setSelected(null)
     Promise.resolve(source?.listPlans({ sessionId: props.sessionId }))
-      .then((result) => { if (alive) setList(result?.ok ? result.value : []) })
-      .catch(() => { if (alive) setList([]) })
-    return () => { alive = false }
+      .then((result) => {
+        if (alive) setList(result?.ok ? result.value : [])
+      })
+      .catch(() => {
+        if (alive) setList([])
+      })
+    return () => {
+      alive = false
+    }
   }, [source, props.sessionId])
 
   if (list === null) {
@@ -85,7 +114,9 @@ function PlanBody(props: PlanBodyProps, ctx: Context): ReactElement {
   if (selected !== null) {
     return (
       <div style={styles.root}>
-        <button style={styles.back} onClick={() => setSelected(null)}>← Back to list</button>
+        <button style={styles.back} onClick={() => setSelected(null)}>
+          ← Back to list
+        </button>
         <div style={styles.preview}>
           <h3>{selected.title}</h3>
           <MarkdownText text={selected.plan} labels={MD_LABELS} />
@@ -114,28 +145,47 @@ function PlanBody(props: PlanBodyProps, ctx: Context): ReactElement {
 
 /** DSH client services this plugin consumes; typed by the package Context augmentations. */
 export function apply(ctx: Context): void {
-  const tabs = ctx.sidebarRightTabs
-  const slots = ctx.slots
-
   // Mount the `plans` Remote namespace on the shared client Remote, owned by this
-  // plugin fiber so it unmounts (and its methods withdraw) on unload.
+  // plugin fiber so it unmounts (and its methods withdraw) on unload. The mount
+  // lives in this fiber (which only needs `remote`) so `remote.plans` becomes
+  // available; the UI sub-fiber below waits on it before loading, avoiding a
+  // self-mount activation deadlock.
   ctx.effect(async () => ctx.remote.$mount(TYPERT_REMOTE))
 
-  tabs.register({
-    id: TAB_ID,
-    kind: KIND,
-    priority: 'extension',
-    title: () => 'Plans',
-    guide: [{ order: 30, title: () => 'Plans', description: () => 'Browse plan-mode plans in this session' }],
+  // The tab body reads `ctx.remote.plans`, which is the `remote.plans` child
+  // service, so it must run in a fiber that declares it in `inject`.
+  ctx.inject(['slots', 'sidebarRightTabs', 'remote', 'remote.plans'], (ctx2) => {
+    const tabs = ctx2.sidebarRightTabs
+    const slots = ctx2.slots
+
+    tabs.register({
+      id: TAB_ID,
+      kind: KIND,
+      priority: 'extension',
+      title: () => 'Plans',
+      guide: [
+        {
+          order: 30,
+          title: () => 'Plans',
+          description: () => 'Browse plan-mode plans in this session',
+        },
+      ],
+    })
+
+    ctx2.effect(() =>
+      slots.inject('sidebar.right.pane.tab', () =>
+        slots.register({ name: 'sidebar.right.pane.tab', key: TAB_ID }, (props: PlanBodyProps) =>
+          PlanBody(props, ctx2),
+        ),
+      ),
+    )
+
+    ctx2.effect(() =>
+      slots.inject('sidebar.right.pane.tab.title', () =>
+        slots.register({ name: 'sidebar.right.pane.tab.title', key: TAB_ID }, () => (
+          <span>Plans</span>
+        )),
+      ),
+    )
   })
-
-  ctx.effect(() => slots.inject('sidebar.right.pane.tab', () => slots.register(
-    { name: 'sidebar.right.pane.tab', key: TAB_ID },
-    (props: PlanBodyProps) => PlanBody(props, ctx),
-  )))
-
-  ctx.effect(() => slots.inject('sidebar.right.pane.tab.title', () => slots.register(
-    { name: 'sidebar.right.pane.tab.title', key: TAB_ID },
-    () => <span>Plans</span>,
-  )))
 }
