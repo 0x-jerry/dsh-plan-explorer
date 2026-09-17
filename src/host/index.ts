@@ -1,42 +1,74 @@
 /**
  * Host half of the Plans plugin.
  *
- * Reads plan-mode (`exit_plan_mode`) tool calls from a live session's log and
- * exposes them as a host-side service `plans.listPlans(sessionId)`.
- *
- * VERIFIED against the real `sessions` service (`ctx.get('sessions')` ->
- * `sessions.get(id)` -> `session.snapshotEvents()`) and the `Session`
- * /`SessionEvent` types. This half is correct and self-contained on the host.
- *
- * The host service must be bridged to the browser client half through a
- * Remote/typert namespace (typert codegen), which requires a deepseek-harness
- * checkout.
+ * Exposes plan-mode (`exit_plan_mode`) tool calls from a live session's log as a
+ * Host Remote service `plans.listPlans(sessionId)`, readable from the browser
+ * client half as `ctx.remote.plans`. The method is registered with the marker
+ * typert-protocol stores on the prototype, so the Host typert Gateway's src-mode
+ * discovery dispatches `plans/listPlans` to it — no generated `./typert` loader
+ * artifact is required for calls to work.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { TypertRemoteService, type RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { SessionId, type Session } from '@deepseek-ai/dsh-session'
 import { extractPlans } from './plans.js'
-import type { PlanSummary } from '../shared/types.js'
+import type { ListPlansRequest, PlanSummary } from '../shared/types.js'
 
 export const name = 'dsh-plan-explorer'
 export const inject: string[] = []
-
-export interface PlansHostService {
-  /** List plan-mode plans of one session, newest first. Empty when the session is unknown. */
-  listPlans(sessionId: string): PlanSummary[]
-}
 
 /** The narrowed `sessions` service shape we consume. */
 export interface SessionsLike {
   get(id: string): Session | undefined
 }
 
-export function apply(ctx: Context): void {
-  function listPlans(sessionId: string): PlanSummary[] {
-    const sessions = ctx.get('sessions')
-    const session = sessions?.get(SessionId(sessionId))
-    if (!session) return []
-    return extractPlans(session.snapshotEvents())
+/**
+ * Prototype key that holds the `{ version: 1, methods: [...] }` Remote-marker
+ * descriptor. typert-protocol's `@Remote` decorator writes this via a standard
+ * decorator; the bundler (tsdown/rolldown) does not transform stage-3
+ * decorators, so we write the same marker shape directly to keep the emitted
+ * ESM valid JS. Marking is idempotent per method.
+ */
+const REMOTE_METHOD_DESCRIPTOR = '@deepseek-ai/dsh-typert-protocol/remote-methods'
+
+/** Register one direct Remote method marker on a service's prototype. */
+export function markRemoteMethod(service: object, method: string): void {
+  const prototype = Object.getPrototypeOf(service)
+  const property = Object.getOwnPropertyDescriptor(prototype, REMOTE_METHOD_DESCRIPTOR)
+  const descriptor = property === undefined ? undefined : property.value as { methods?: Array<{ method: string }> }
+  if (descriptor?.methods?.some((m) => m.method === method)) return
+  Object.defineProperty(prototype, REMOTE_METHOD_DESCRIPTOR, {
+    configurable: true,
+    value: Object.freeze({
+      version: 1,
+      methods: Object.freeze([...(descriptor?.methods ?? []), Object.freeze({
+        method,
+        invocation: Object.freeze({ kind: 'direct' }),
+      })]),
+    }),
+  })
+}
+
+/**
+ * Host Remote face for plan reading. The wire service key and namespace are both
+ * `plans`; the client mounts the matching `TYPERT_REMOTE` contribution so
+ * `ctx.remote.plans.listPlans({ sessionId })` resolves here.
+ */
+export class PlansService extends TypertRemoteService {
+  static inject = ['sessions']
+
+  constructor(ctx: Context) {
+    super(ctx, 'plans')
+    markRemoteMethod(this, 'listPlans')
   }
 
-  ctx.provide(name, { listPlans })
+  async listPlans(request: ListPlansRequest): Promise<RemoteResult<PlanSummary[]>> {
+    const sessions = this.ctx.get('sessions') as SessionsLike | undefined
+    const session = sessions?.get(SessionId(request.sessionId))
+    return { ok: true, value: session ? extractPlans(session.snapshotEvents()) : [] }
+  }
+}
+
+export function apply(ctx: Context): void {
+  ctx.plugin(PlansService)
 }

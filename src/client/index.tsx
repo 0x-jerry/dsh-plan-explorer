@@ -11,17 +11,24 @@
  *   - `slots.inject('sidebar.right.pane.tab.title', ...)`
  *   - tab body standard props include `sessionId` (and `useSession`).
  *
- * DATA FLOW (the one integration seam): the plan bodies live on the Host. The
- * client resolves them through the `plansSource` below, which reads a
- * Host->client Remote namespace if present.
+ * DATA FLOW (the one integration seam): plan bodies live on the Host. The client
+ * reads them through the `plans` Host Remote namespace: `apply` mounts the
+ * `TYPERT_REMOTE` contribution (`ctx.remote.$mount`), which materialises
+ * `ctx.remote.plans`; the Host Gateway src-dispatches `plans/listPlans` to the
+ * `PlansService` face. A Remote unary call resolves to a `RemoteResult` envelope
+ * (`{ok:true,value}|{ok:false,error}`), never a rejection.
  */
-import type { Context, Effect } from '@deepseek-ai/cordis'
+import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from 'react'
 import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { TYPERT_REMOTE, type PlansRemoteNamespace } from '../typert/remote.js'
 import type { PlanSummary } from '../shared/types.js'
 
 export const name = 'dsh-plan-explorer'
-export const inject = ['slots', 'sidebarRightTabs']
+export const inject = ['slots', 'sidebarRightTabs', 'remote']
 
 const TAB_ID = 'plans-sidebar'
 const KIND = 'dshPlans'
@@ -32,17 +39,9 @@ const MD_LABELS = {
   footnotes: 'Footnotes',
 }
 
-/** Minimal typed view of the Host's `plans` Remote namespace, when present. */
-export interface PlansRemoteFace {
-  listPlans(sessionId: string): Promise<PlanSummary[]>
-}
-
-function clientOfPlansSource(ctx: Context): PlansRemoteFace | undefined {
-  // The Host provides `plans` (see src/host/index.ts); when a typert Remote namespace
-  // is wired, it appears on the client as `ctx.remote.plans`. Typed via a local
-  // interface + `any` cast because the namespace is generated at build time.
-  const remote = (ctx as unknown as { remote?: { plans?: PlansRemoteFace } }).remote
-  return remote?.plans
+/** The `plans` namespace on the shared client Remote, once this plugin mounts it. */
+function plansRemote(ctx: Context): PlansRemoteNamespace {
+  return ctx.remote.plans
 }
 
 const styles: Record<string, CSSProperties> = {
@@ -68,14 +67,14 @@ interface PlanBodyProps {
 function PlanBody(props: PlanBodyProps, ctx: Context): ReactElement {
   const [list, setList] = useState<PlanSummary[] | null>(null)
   const [selected, setSelected] = useState<PlanSummary | null>(null)
-  const source = useMemo(() => clientOfPlansSource(ctx), [ctx])
+  const source = useMemo(() => plansRemote(ctx), [ctx])
 
   useEffect(() => {
     let alive = true
     setList(null)
     setSelected(null)
-    Promise.resolve(source?.listPlans(props.sessionId) ?? [])
-      .then((plans) => { if (alive) setList(plans) })
+    Promise.resolve(source?.listPlans({ sessionId: props.sessionId }))
+      .then((result) => { if (alive) setList(result?.ok ? result.value : []) })
       .catch(() => { if (alive) setList([]) })
     return () => { alive = false }
   }, [source, props.sessionId])
@@ -113,21 +112,14 @@ function PlanBody(props: PlanBodyProps, ctx: Context): ReactElement {
   )
 }
 
-/** DSH client services this plugin consumes; the standalone cordis `Context` doesn't carry them. */
-type PlansServices = {
-  slots: {
-    inject(slot: string, register: () => Effect): Effect
-    register(spec: unknown, component?: unknown): Effect
-  }
-  sidebarRightTabs: {
-    register(definition: unknown): Effect
-  }
-}
-
+/** DSH client services this plugin consumes; typed by the package Context augmentations. */
 export function apply(ctx: Context): void {
-  const c = ctx as Context & PlansServices
-  const tabs = c.sidebarRightTabs
-  const slots = c.slots
+  const tabs = ctx.sidebarRightTabs
+  const slots = ctx.slots
+
+  // Mount the `plans` Remote namespace on the shared client Remote, owned by this
+  // plugin fiber so it unmounts (and its methods withdraw) on unload.
+  ctx.effect(async () => ctx.remote.$mount(TYPERT_REMOTE))
 
   tabs.register({
     id: TAB_ID,

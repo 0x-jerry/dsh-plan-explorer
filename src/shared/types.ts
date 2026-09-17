@@ -18,6 +18,15 @@ export interface PlanSummary {
   plan: string
 }
 
+/**
+ * Wire payload of the `plans.listPlans` Remote call. Single request object so the
+ * generated typert boundary stays a one-parameter unary method.
+ */
+export interface ListPlansRequest {
+  /** The session whose plan-mode plans are requested. */
+  sessionId: string
+}
+
 /** Minimal structural shape of a `tool/call` SessionEvent that we read. */
 export interface ToolCallEventLike {
   type: string
